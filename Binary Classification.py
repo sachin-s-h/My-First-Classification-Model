@@ -47,8 +47,7 @@ margin = int(0.75 * titanic.shape[0])
 train = titanic[:margin]
 test = titanic[margin:]
 
-
-# building different models and tuning them
+# building logistic regression model
 from sklearn.linear_model import LogisticRegression
 
 # instantiating the model
@@ -60,15 +59,15 @@ lr.fit(train[features], train['Survived'])
 # predicting the result
 logistic_prediction = lr.predict(test[features])
 
+# checking the model accuracy
 from sklearn.metrics import roc_auc_score
 
-# checking model accuracy
 logistic_score = roc_auc_score(test['Survived'], logistic_prediction)
 print("logistic regression :", logistic_score)
 # achieving 0.7937 accuracy with logistic regression
 
 
-# similarly, with decision tree and random forest classifier
+# building decision tree classifier model and tuning them with hyper parameters
 from sklearn.tree import DecisionTreeClassifier
 
 dtc = DecisionTreeClassifier(random_state=3, min_samples_split=2, min_samples_leaf=2)
@@ -79,6 +78,7 @@ print("decision tree classifier :", dtc_score)
 # achieving 0.8211 accuracy with decision tree classifier
 
 
+# building random forest classifier model and tuning them with hyper parameters
 from sklearn.ensemble import RandomForestClassifier
 
 rfc = RandomForestClassifier(n_estimators=250, random_state=3, min_samples_split=2, bootstrap = True, min_samples_leaf=3)
@@ -87,3 +87,4 @@ rfc_prediction = rfc.predict(test[features])
 rfc_score = roc_auc_score(test['Survived'], rfc_prediction)
 print("random forest classifier :", rfc_score)
 # achieving 0.8528 accuracy with random forest classifier
+
