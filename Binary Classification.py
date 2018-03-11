@@ -4,7 +4,7 @@
 Titanic: Machine Learning from Disaster
 Predicting survival on the Titanic 
 
-For each PassengerId in the test set, this predict 0 or 1 value as a Survival prediction.
+For each PassengerId in the test set, this predict 0 or 1 value as the Survival prediction.
 
 """
 
@@ -23,11 +23,11 @@ print(titanic.info(),"\n")
 isnull = titanic.isnull().sum()
 print(isnull,"\n")
 
-# Age, Cabin and Embarked features have got null counts
+# Age, Cabin and Embarked features have got null values
 # Covering null values in Age column with it's mean value 
 titanic['Age'] = titanic['Age'].fillna(titanic['Age'].mean())
 
-# Since, Cabin column has more than 75% of null values might not help in training a model 
+# Since, Cabin column has more than 75% of null values might not help in training the model right
 # Let's drop this feature
 titanic = titanic.drop('Cabin', axis = 1)
 
