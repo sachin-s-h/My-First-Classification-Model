@@ -1,0 +1,120 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Feb 15 12:45:40 2019
+
+@author: Sachin
+"""
+
+from sklearn.feature_extraction.stop_words import ENGLISH_STOP_WORDS
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.calibration import CalibratedClassifierCV
+from more_itertools import unique_everseen
+from sklearn.base import TransformerMixin 
+from sklearn.pipeline import Pipeline
+from nltk.stem import SnowballStemmer, LancasterStemmer
+from sklearn.externals import joblib
+from sklearn.svm import LinearSVC
+from spacy.lang.en import English
+from string import digits
+import pandas as pd
+import warnings 
+import string
+import json
+import numpy as np
+
+warnings.filterwarnings("ignore")
+parser = English()
+
+# Custom transformer using spaCy 
+class predictors(TransformerMixin):
+    def transform(self, X, **transform_params):
+        return [clean_text(text) for text in X]
+    def fit(self, X, y=None, **fit_params):
+        return self
+    def get_params(self, deep=True):
+        return {}
+    
+# Extending Stopwords
+def stop_def():
+  
+    stopwords = list(ENGLISH_STOP_WORDS)
+    stopwords.extend(["hey","Hey"])  
+    punctuations = string.punctuation
+    punctuations = punctuations + "‘’”“’%?"
+    
+    return stopwords, punctuations
+    
+# Utility function to clean the text 
+def clean_text(text):     
+    text_cleaned = text.strip().lower()
+    remove_digits = text_cleaned.maketrans('', '', digits)
+    text_cleaned = text_cleaned.translate(remove_digits)
+    return text_cleaned
+  
+snow = SnowballStemmer('english')
+
+# Spacy tokenizer that parses a sentence and generates tokens
+def spacy_tokenizer(sentence):
+    tokens = parser(sentence)
+    tokens = [tok.lower_ for tok in tokens]
+    tokens = [snow.stem(tok) for tok in tokens]
+    stopwords, punctuations = stop_def()
+    tokens = [tok for tok in tokens if (tok not in stopwords and tok not in punctuations)]
+    return tokens
+    
+# create vectorizer object to generate feature vectors, we will use custom spacy’s tokenizer
+vectorizer = TfidfVectorizer(tokenizer = spacy_tokenizer, sublinear_tf=False, max_df=0.5, ngram_range=(1,1)) 
+
+# Super-vised Model
+classifier = CalibratedClassifierCV(base_estimator=LinearSVC(penalty='l2', multi_class='ovr', class_weight="balanced", max_iter=500), cv=5)
+
+def trainer(text_json):
+
+    # Create the  pipeline to clean, tokenize, vectorize, and classify 
+    pipe = Pipeline([('cleaner', predictors()),
+                     ('vectorizer', vectorizer),
+                     ('classifier', classifier)])  
+    # read data
+    df = pd.DataFrame(data = [('','')], columns=['Sentence','Context'])
+    
+    # this line is needed while running in local system
+    test_json = json.loads(text_json)
+    
+    for i in range(len(test_json)):
+        df.loc[i, ['Sentence']] = test_json[i]['Sentence']
+        df.loc[i, ['Context']] = test_json[i]['Context']
+        
+    pipe.fit(df['Sentence'], df['Context'])
+    joblib.dump(pipe, 'misconduct_LSVC.pkl')
+
+def predictor(text_json):
+    
+    pipe = joblib.load('misconduct_LSVC.pkl')
+    result = pd.DataFrame()    
+    res_df = pd.DataFrame(data = [('','')], columns=['Sentence','Context'])
+    
+    # this line is needed while running in local system
+    test_json = json.loads(text_json)
+    
+    for i in range(len(test_json)):
+        res_df.loc[i, ['Sentence']] = test_json[i]['Sentence']
+        
+    result['Sentence'] = res_df['Sentence']
+    l1 = pipe.predict(res_df['Sentence'])
+    l2 = pipe.predict_proba(res_df['Sentence'])
+        
+    result['Context'] = pd.Series(l1)
+    result['Score'] = pd.Series([max(each) for each in l2])
+    
+    jd = [ 
+        dict([
+            (colname, row[i]) 
+            for i,colname in enumerate(result.columns)
+        ])
+        for row in result.values
+    ]
+        
+    # This line is not needed while running in local system
+    #json_obj =  json.dumps(jd)
+    return(jd)
+    
